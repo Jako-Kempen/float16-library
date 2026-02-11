@@ -1,40 +1,40 @@
 #include <iostream>
+using namespace std;
 
 /*
 This is a test of a more accurate float16 class
 Old float 16 class used a 8 bit exponent and a 7 bit mantissa with the sign bit being the MSB of the mantissa.
-This was very easy to imlement, but it lacked the required accuracy.
+This was very easy to implement, but it lacked the required accuracy.
 
-The new float16 has the xact format of the float16 standard, expect that the value is not entirely repressened as a single 16 bit value.
-This is the second test with the next to merge the sign bit, exponent and mantissa into a single 16 bit placeholder.
+The new float16 has the exact format of the float16 standard, expect that the value is not entirely represened as a single 16 bit value.
+
 A float value consist of a 5 bit exponent and a 10 bit mantissa.
 To represent these values in as few memory spaces as possible, the exponent will be an 8 bit value, only using the 6 LSBs.
 The sign bit will be bit 5, and bits 0..4 will be the exponent.
 The mantissa will be the 10 MSBs of the 16 bit value, this makes the shifting of the mantissa easier. Any value of less than 2^-9 will be ignored.
 
-The next iteration should not have the need to constantly convert between the final 16 bit value and the the separate exponent and mantissas.
-The compresses 16 bit value should only be converted to when it is stored or communicated elsewhere.
+Using the Compress fucntion, both sign bit, exponent and mantissa can be repressented as the 16 bit value
+This compressed 16 bit value should only be converted to when it is stored or communicated elsewhere.
 */
-
-using namespace std;
 
 class float16{
 	private:
 		//Split the 16 bit value into two separate values
-		uint8_t valExp; //One for the exponent (contains the sign bit)
-		uint16_t valMant; //One for the mantisa (this should show the implicit 2^0 bit
-		uint16_t valComp; //This is the compressed 16 bit representation
+		uint8_t valExp; //One for the exponent (contains the sign bit)	Format of 0bXXSE EEEE
+		uint16_t valMant; //One for the mantisa (this should show the implicit 2^0 bit. Format of 0bIMMM MMMM MMMX XXXX
+		uint16_t valComp; //This is the compressed 16 bit representation. Format of 0bSEEE EEMM MMMMM MMMM
 	public:
 		float16();	//Construction of the variable
-		void Set_Exp(uint8_t);
-		void Set_Mant(uint16_t);
-		void Set_Comp(uint16_t);
-		void Compress();
-		void Decompress();
+		void Set_Exp(uint8_t);//Overwrites the current exponent value
+		void Set_Mant(uint16_t);//Overwrties the current mantissa value
+		void Set_Comp(uint16_t);//Overwrites the current compressed 16 bit representation value
 		uint8_t Get_Exp();
 		uint16_t Get_Mant();
 		uint16_t Get_Comp();
-		void Add_Float16(float16*); //Where the final variable is added to a temporary value of the same construction
+		void Compress();//Takes the exponent and mantissa and create a 16 bit representation
+		void Decompress();//Takes the 16 bit representation and create exponent and mantissa values
+		void Add_Float16(float16*); //Where 'this' float16 value is added to a temporary float16 value, this overwrites 'this' value
+		void Multiply_uint16(uint16_t);//Multiplies 'this' value with an unsigned 16 bit integer value, this overwrites 'this' value
 };
 
 float16::float16()
@@ -59,38 +59,37 @@ uint16_t float16::Get_Comp() {return(valComp);}
 void float16::Compress()
 {
 	/*This function takes the two variables; uint8_t and uint16_t, and writes it in the float16 format.*/
-	std::cout << "Compressing uint8_t exponent and uint16_t mantissa into a custom float16 format (uint16_t)" << endl;//Debug
 	
 	uint8_t tempExp;
 	uint16_t tempMant;
 	
 	valComp = 0x0000;//Clear the current compressed format since this will be overwritten
-	tempExp = valExp;
-	tempMant = valMant;
-	std::cout << "OldExp: " << static_cast<int>(tempExp) << endl;//Debug
-	//Since the mantissa was shifted right to implement the 2^0 bit, this must be reversed.
-	//The MSB nibble needs to be removed as well as the MSB of the second nibble
-	tempMant = tempMant & 0x07FF;
-	valComp = tempExp;//Move the exponent into the compressed variable
+	tempExp = valExp;//Creates a temporary clone of the exponent
+	tempMant = valMant;//Creates a temporary clone of the mantissa
+
+	tempMant = tempMant & 0x7FB0;//Removes the MSB (this is the implicit 2^0 bit) and the 6 LSBs (basically rounds down to fit in the 16 bit representation)
+	valComp = tempExp;//Move the exponent into the compressed variable (this contains the sign bit)
 	valComp = valComp << 10;//Shift sign and exponent to be 6 MSBs
-	std::cout << "NewExp: " << static_cast<int>(valComp) << endl;//Debug
-	tempMant = tempMant >> 1; //Shift mantissa to be the 10 LSBs.
-	valComp = valComp | tempMant; //Create final float16 value by logical operation
+
+	tempMant = tempMant >> 6; //Shift mantissa to be the 10 LSBs.
+	valComp = valComp | tempMant; //Create final float16 value by OR operation
 }
 
 void float16::Decompress()
 {
 	/*This functions takes the variable in the float16 format, and writes it to the uint8_t and uint16_t variables.*/
-	std::cout << "Decompressing a float16 (uint16_t) value into a uint8_t exponent and uint16_t mantissa" << endl;//Debug
 	
 	uint16_t tempExp;//Still contains the sign bit
-	uint16_t tempMant;//Shows the implic 2^0 bit 
+	uint16_t tempMant;//Shows the implic 2^0 bit
+	uint16_t tempComp;//Temporary 16 bit representaion
 
-	std::cout << "Masking exponent:" << endl;
-	tempExp = valComp&0xFB00;//Fetch the 6 bits, sign bit and 5 bit exponent
+	tempComp = valComp;//Creates a clone of the 16 bit value
+	tempExp = tempComp & 0xFB00;//Fetch the 6 bits, sign bit and 5 bit exponent
 	tempExp = tempExp >> 10;//Shift exponent 10 bits right to fit in 8 bit format
 	valExp = static_cast<uint8_t>(tempExp);
-	tempMant = valComp & 0x03FF;//Fetch current mantissa
+	
+	tempComp = valComp;//Recreates the clone of the old 16 bit value
+	tempMant = tempComp & 0x03FF;//Fetch current mantissa
 	tempMant = tempMant | 0x0400;//Add implicit 2^0 bit to use in calculations
 	tempMant = tempMant << 5;//Shift mantissa 5 bits left to make the mantissa calculations easier
 	valMant = tempMant;
@@ -99,84 +98,125 @@ void float16::Decompress()
 void float16::Add_Float16(float16* float16Temp)
 {
 	/*
+	As of 2026-02-11 09h27 UTC+1 this function can't add any negative float16 value
+	
 	This function takes "this" float16 value (uncompressed), and adds to it a temporary float16 value.
 	The sum of these two values then overwrites "this" float16 value.
 	
 	The two float16 variables must already be in their decompressed format.
 	The last line calls to compress the sum such that it is already in both formats.
+	
 	*/
 	
-	uint8_t tempExp1, tempExp2;
-	uint16_t tempMant1, tempMant2;
-	double overflowCheck = 0;
-	int loopCount = 1;
+	uint8_t tempExp1, tempExp2;	//Creates copies of both values' exponents
+	uint16_t tempMant1, tempMant2;//Creates copies of both values' mantissas
+	int loopCount = 1;// A count of how many times the smallest exponents needs to increase before the mantissas can be added
 	
-	tempExp1 = valExp;
-	tempExp2 = float16Temp->Get_Exp();
-	tempMant1 = valMant;
-	tempMant2 = float16Temp->Get_Mant();
+	tempExp1 = valExp;//Clones 'this' exponent
+	tempExp2 = float16Temp->Get_Exp(); //Clones the temporary exponent
+	tempMant1 = valMant;//Clones 'this' mantissa
+	tempMant2 = float16Temp->Get_Mant(); //Clones the temporary mantissa
 	
-	//compare exp values
-	std::cout << "Compare the exponents of the two variables." << endl;
-	while (tempExp1 != tempExp2)
+	while (tempExp1 != tempExp2)//Loop until both exponents are equal
 	{
 		std::cout << "Loop count: " << loopCount << endl;
 		if (tempExp2 <= tempExp1)
 		{
-			std::cout << "Variable1 exponent is larger" << endl;
+			//This routine doubles the smallest value (in this case the temporary float16 value)
 			tempExp2++;//Increment exponent value
+			if (tempExp2 > 31)
+				break;
 			tempMant2 = tempMant2 >> 1; //Bit shift mantissa
-			std::cout << "Increased old exponent2 to: " << static_cast<int>(tempExp2) << " Shifted old matissa2 to: " << static_cast<int>(tempMant2) << endl;//Debug
 		}
 		else
 		{
-			std::cout << "Variable2 exponent is larger" << endl;
+			//This routine doubles the smallest value (in this case 'this' float16 value)
 			tempExp1++;//Increment exponent value
+			if (tempExp1 > 31)
+				break;
 			tempMant1 = tempMant1 >> 1;//Bit shift mantissa
-			std::cout << "Increased old exponent to: " << static_cast<int>(tempExp1) << " Shifted old matissa to: " << static_cast<int>(tempMant1) << endl;//Debug
 		}
 		loopCount += 1;
 	}
 	
-	cout << "Both exponents are equal" << endl;//Debug
-	//add mantissas
-	std::cout << "Temp Val1 exponent: " << static_cast<int>(tempExp1) << " Temp Val1 matissa:" << static_cast<int>(tempMant1) << endl;//Debug
-	std::cout << "Temp Val2 exponent: " << static_cast<int>(tempExp2) << " Temp Val2 matissa: " << static_cast<int>(tempMant2) << endl;//Debug
-	overflowCheck = tempMant1+tempMant2;
-	tempMant1 += tempMant2;
-	std::cout << "New Temp Val1 matissa: " << static_cast<int>(tempMant1) << endl;//Debug
-	
-	//check overflow
-	if (overflowCheck > 4095)
+	//Both mantissas should be shifted so that a overflow can be detected
+	tempMant1 = tempMant1 >> 6;
+	tempMant2 = tempMant2 >> 6;
+
+	tempMant1 += tempMant2;//add mantissas
+	if (tempMant1 > 1023)//If a mantissa overflow happens
 	{
-		std::cout << "Mantissa overflowed" << endl;
-		//Add 1 to exponent and shift mantissa right
-		tempExp1++;
-		tempMant1 = tempMant1 >> 1;
-		//Place overflowed bit
-		tempMant1 = tempMant1 | 0x8000;
-		std::cout << "Temp Val1 exponent: " << static_cast<int>(tempExp1) << " Temp Val1 matissa: " << static_cast<int>(tempMant1) << endl;//Debug
+		tempExp1++;//Add 1 to exponent
+		tempMant1 = tempMant1 >> 1;//And shift mantissa right
 	}
 	
+	tempMant1 = tempMant1 << 6; //Normalise the Mantissa so that the 2^0 bit is the MSB
 	valExp = tempExp1;
 	valMant = tempMant1;
-	Compress();
+	std::cout << "newExp: " << static_cast<int>(tempExp1) << " newMant: " << static_cast<int>(tempMant1) << endl;//Debug
+}
+
+void float16::Multiply_uint16(uint16_t Multiplicant)
+{	
+	/*This function multiplies 'this' float16 value with an unsigned 16 bit integer value
+	First it has to remove the sign bit  from 'this' value
+	Then it has to step through the uint16 value until it equals 0
+	Lastly it has to return the sign bit*/
+
+	bool sign = 0;//Initialise the flag as positive
+	uint16_t tempMulti = 0;
+	float16 oldValue;//This keeps a clone of the old 'this' value before the actual 'this' value become the running sum value
+	oldValue.Set_Exp(valExp);
+	oldValue.Set_Mant(valMant);
+	
+	std::cout << "Initial exponent: " << static_cast<int>(valExp) << " Initial mantissa:" <<  static_cast<int>(valMant)<< endl;//Debug
+	
+	/*Given that the multiplicant is unsigned, it will be good to mask off the sign bit of 'this' value, and add it back in the very end*/
+	if (valExp > 31)
+		sign = 1;//float16 was a negative value, and the final result will also then be negative
+	valExp = valExp & 0x1F;; //Masking off the sign bit
+	
+	//First to check if the multiplicant is 0
+	if (Multiplicant == 0)
+	{
+		std::cout << "Multiplicant detected to be 0" << endl;//Debug
+		//The result should obvisouly be 0
+		valExp = 0;
+		valMant = 0;
+	}
+	else if (Multiplicant != 1)
+	{	
+		while (Multiplicant != 0)
+		{
+			std::cout << "valExp: " << static_cast<int>(valExp) << " oldExp:" <<  static_cast<int>(oldValue.Get_Exp())<< endl;//Debug
+		
+			tempMulti = Multiplicant & 0x0001; //Mask the LSB
+			
+			if (tempMulti == 0x0001) //If the LSB is 1
+				Add_Float16(&oldValue);//Here the old float16 value must be added to the current (running sum) float 16 value
+			else //Otherwise it has to be 0
+				valExp++;//Add 1 to exponent
+
+			Multiplicant = Multiplicant >> 1;
+		}
+	}
+	
+	if (sign == 1)
+		valExp = valExp | 0x20; //Returns the correct sign bit
 }
 
 void convertFloatToFloat16(float fValue, float16* newValue)
 {
-	int increment = 0;
-	bool check = 0;
-	bool sign = 0; // Initialises as a positive value
+	int increment = 0;//This is the exponent before normalized into the final exponent (a 15 will be added later)
+	bool check = 0; //Used to check if the current float value is between 1 and 2 
+	bool sign = 0; //Initialises as a positive value
 	
-	std::cout << fValue << endl;
 	//Remove sign
 	if (fValue < 0)
 	{
 		sign = 1;//Set signed bit to negative
-		fValue = fValue * -1;
+		fValue = fValue * -1;//Normalize to not work with a negative number
 	}
-	std::cout << fValue << endl;
 	
 	//Determine the exponent of the new value
 	while (check == 0)
@@ -187,145 +227,93 @@ void convertFloatToFloat16(float fValue, float16* newValue)
 		}
 		else if ((fValue >= 1) && (fValue < 2))
 		{
-			std::cout << "Last: " << increment << ": " << fValue << endl;
 			check = 1;
 		}
 		else if (fValue >= 2)
 		{
-			std::cout << increment << ": " << fValue << endl;
 			fValue = fValue/2;
 			increment++;
 		}
 		else
 		{
-			std::cout << increment << ": " << fValue << endl;
 			fValue = fValue*2;
 			increment--;
 		}	
 	}
 	
-	//remove the implicit 1
-	fValue--;
+	fValue--; //Remove the implicit 1, this bit will be returned after the mantissa is calculated
 	uint16_t tempMantissa = 0x00;//Initialise the temporary mantissa as 0x00;
-	std::cout << " Current mantissa: " << static_cast<int>(tempMantissa) << endl;
-	//Generate mantissa
-	if ((fValue - 0.5) >= 0)
-	{
-		tempMantissa = tempMantissa | 0x400; //0b0100 0000 0000
-		fValue -= 0.5;
-		std::cout << "Subtracted 2^-1: Current fValue: " << fValue << " Current mantissa: " << static_cast<int>(tempMantissa) << endl;
-	}//check 2^-1
-	if ((fValue - 0.25) >= 0)
-	{
-		tempMantissa = tempMantissa | 0x200; //0b0010 0000 0000
-		fValue -= 0.25;
-		std::cout << "Subtracted 2^-2: Current fValue: " << fValue << " Current mantissa: " << static_cast<int>(tempMantissa) << endl;
-	}//check 2^-2
-	if ((fValue - 0.125) >= 0)
-	{
-		tempMantissa = tempMantissa | 0x100; //0b0001 0000 0000
-		fValue -= 0.125;
-		std::cout << "Subtracted 2^-3: Current fValue: " << fValue << " Current mantissa: " << static_cast<int>(tempMantissa) << endl;
-	}//check 2^-3
-	if ((fValue - 0.0625) >= 0)
-	{
-		tempMantissa = tempMantissa | 0x080; //0b0000 1000 0000
-		fValue -= 0.0625;
-		std::cout << "Subtracted 2^-4: Current fValue: " << fValue << " Current mantissa: " << static_cast<int>(tempMantissa) << endl;
-	}//check 2^-4
-	if ((fValue - 0.03125) >= 0)
-	{
-		tempMantissa = tempMantissa | 0x040; //0b0000 0100 0000
-		fValue -= 0.03125;
-		std::cout << "Subtracted 2^-5: Current fValue: " << fValue << " Current mantissa: " << static_cast<int>(tempMantissa) << endl;
-	}//check 2^-5
-	if ((fValue - 0.015625) >= 0)
-	{
-		tempMantissa = tempMantissa | 0x020; //0b0000 0010 0000
-		fValue -= 0.015625;
-		std::cout << "Subtracted 2^-6: Current fValue: " << fValue << " Current mantissa: " << static_cast<int>(tempMantissa) << endl;
-	}//check 2^-6
-	if ((fValue - 0.0078125) >= 0)
-	{
-		tempMantissa = tempMantissa | 0x010; //0b0000 0001 0000
-		fValue -= 0.0078125;
-		std::cout << "Subtracted 2^-7: Current fValue: " << fValue << " Current mantissa: " << static_cast<int>(tempMantissa) << endl;
-	}//check 2^-7
-	if ((fValue - 0.00390625) >= 0)
-	{
-		tempMantissa = tempMantissa | 0x008; //0b0000 0000 1000
-		fValue -= 0.00390625;
-		std::cout << "Subtracted 2^-8: Current fValue: " << fValue << " Current mantissa: " << static_cast<int>(tempMantissa) << endl;
-	}//check 2^-8
-	if ((fValue - 0.001953125) >= 0)
-	{
-		tempMantissa = tempMantissa | 0x004; //0b0000 0000 0100
-		fValue -= 0.001953125;
-		std::cout << "Subtracted 2^-9: Current fValue: " << fValue << " Current mantissa: " << static_cast<int>(tempMantissa) << endl;
-	}//check 2^-9
-	if ((fValue - 0.0009765625) >= 0)
-	{
-		tempMantissa = tempMantissa | 0x002; //0b0000 0000 0010
-		fValue -= 0.0009765625;
-		std::cout << "Subtracted 2^-10: Current fValue: " << fValue << " Current mantissa: " << static_cast<int>(tempMantissa) << endl;
-	}//check 2^-10
 
-	//Return the 2^0 bit
-	tempMantissa = tempMantissa | 0x800;// 0x1000 0000 0000
+	//Generate mantissa
+	if ((fValue - 0.5) >= 0)//check 2^-1
+	{
+		tempMantissa = tempMantissa | 0x4000; //0b0100 0000 0000 0000
+		fValue -= 0.5;
+	}
+	if ((fValue - 0.25) >= 0)//check 2^-2
+	{
+		tempMantissa = tempMantissa | 0x2000; //0b0010 0000 0000 0000
+		fValue -= 0.25;
+	}
+	if ((fValue - 0.125) >= 0)//check 2^-3
+	{
+		tempMantissa = tempMantissa | 0x1000; //0b0001 0000 0000 0000
+		fValue -= 0.125;
+	}
+	if ((fValue - 0.0625) >= 0)//check 2^-4
+	{
+		tempMantissa = tempMantissa | 0x0800; //0b0000 1000 0000 0000
+		fValue -= 0.0625;
+	}
+	if ((fValue - 0.03125) >= 0)//check 2^-5
+	{
+		tempMantissa = tempMantissa | 0x0400; //0b0000 0100 0000 0000
+		fValue -= 0.03125;
+	}
+	if ((fValue - 0.015625) >= 0)//check 2^-6
+	{
+		tempMantissa = tempMantissa | 0x0200; //0b0000 0010 0000 0000
+		fValue -= 0.015625;
+
+	}
+	if ((fValue - 0.0078125) >= 0)//check 2^-7
+	{
+		tempMantissa = tempMantissa | 0x0100; //0b0000 0001 0000 0000
+		fValue -= 0.0078125;
+	}
+	if ((fValue - 0.00390625) >= 0)//check 2^-8
+	{
+		tempMantissa = tempMantissa | 0x0080; //0b0000 0000 1000 0000
+		fValue -= 0.00390625;
+	}
+	if ((fValue - 0.001953125) >= 0)//check 2^-9
+	{
+		tempMantissa = tempMantissa | 0x0040; //0b0000 0000 0100 0000
+		fValue -= 0.001953125;
+	}
+	if ((fValue - 0.0009765625) >= 0)//check 2^-10
+	{
+		tempMantissa = tempMantissa | 0x0020; //0b0000 0000 0010 0000
+		fValue -= 0.0009765625;
+	}
+	
+	tempMantissa = tempMantissa | 0x8000;// Returns the 2^0 bit
 
 	newValue->Set_Exp(15+increment);
 	uint8_t tempExp;
 	tempExp = newValue->Get_Exp();
 	
-	std::cout << "Old exponent: " << static_cast<int>(tempExp) << endl;//Debug
 	if (sign == 1)
-	{
-		std::cout << "Negative value" << endl;//Debug
-		tempExp = tempExp | 0x20; //0b0010 0000
-	}
-	std::cout << "New exponent: " << static_cast<int>(tempExp) << endl;//Debug
+		tempExp = tempExp | 0x20; //Flag the sign bit if the value is negative
+
 	newValue->Set_Exp(tempExp);
 	newValue->Set_Mant(tempMantissa);
-	newValue->Compress();
 }
 
 int main ()
 {
-	/*float16 Var1;	//Main test varible
-	float16 Var2;	//Temporary float16 value used for calculations
-
-	Var1.Set_Exp(16);
-	Var1.Set_Mant(0xC000);
-	//Var1 is set to be 0.5
-	
-	std::cout << "Exponent1: " << static_cast<int>(Var1.Get_Exp()) << " Mantissa1: " << static_cast<int>(Var1.Get_Mant()) << endl;//Debug
-	Var1.Compress();
-	std::cout << "Compressed as: " << static_cast<int>(Var1.Get_Comp()) << endl;//Debug
-	Var1.Set_Exp(0);
-	Var1.Set_Mant(0x0000);
-	Var1.Decompress();
-	std::cout << "Exponent1: " << static_cast<int>(Var1.Get_Exp()) << " Mantissa1: " << static_cast<int>(Var1.Get_Mant()) << endl;//Debug
-	
-	Var2.Set_Exp(16);
-	Var2.Set_Mant(0x8000);
-	//Var2 is set to be 1
-	
-	std::cout << "Exponent2: " << static_cast<int>(Var2.Get_Exp()) << " Mantissa2: " << static_cast<int>(Var2.Get_Mant()) << endl;//Debug
-	Var2.Compress();
-	std::cout << "Compressed as: " << static_cast<int>(Var2.Get_Comp()) << endl;//Debug
-	Var2.Set_Exp(0);
-	Var2.Set_Mant(0x0000);
-	Var2.Decompress();
-	std::cout << "Exponent2: " << static_cast<int>(Var2.Get_Exp()) << " Mantissa2: " << static_cast<int>(Var2.Get_Mant()) << endl;//Debug
-	
-
-	Var1.Add_Float16(&Var2);//Add Var2 to Var1 and rewrite it to be the sum
-	
-	std::cout << "Sum total is:" << endl;
-	std::cout << "Exponent1: " << static_cast<int>(Var1.Get_Exp()) << " Mantissa1: " << static_cast<int>(Var1.Get_Mant()) << endl;//Debug
-	std::cout << "Compressed as: " << static_cast<int>(Var1.Get_Comp()) << endl;//Debug*/
-	
 	float A = 0;
+	uint16_t B = 0;
 	float16 Var3;
 	
 	while (1)
@@ -334,11 +322,19 @@ int main ()
 		Var3.Set_Mant(0);
 		Var3.Set_Comp(0);
 		
+		/*std::cout << "Enter uint16_t multiplicant:" << endl;
+		std::cin >> B;*/
+		std::cout << "Enter the float value:\t";
 		std::cin >> A;
 		if (A != 0)
 			convertFloatToFloat16(A,&Var3);
-		std::cout << "Exponent: " << static_cast<int>(Var3.Get_Exp()) << " Mantissa: " << static_cast<int>(Var3.Get_Mant()) << endl;//Debug
-		std::cout << "Compressed value: " << static_cast<int>(Var3.Get_Comp()) << endl;//Debug
+		std::cout << "Exponent: " << static_cast<int>(Var3.Get_Exp()) << " Mantissa: " << static_cast<int>(Var3.Get_Mant()) << endl << endl;//Debug
+		//std::cout << "Compressed value: " << static_cast<int>(Var3.Get_Comp()) << endl;//Debug
+		/*std::cout << "Multiplying..." << endl;
+		Var3.Multiply_uint16(B);
+		
+		std::cout << "New Exponent: " << static_cast<int>(Var3.Get_Exp()) << " New Mantissa: " << static_cast<int>(Var3.Get_Mant()) << endl;//Debug
+		//std::cout << "Compressed value: " << static_cast<int>(Var3.Get_Comp()) << endl;//Debug*/
 	}
 	return(0);
 };
