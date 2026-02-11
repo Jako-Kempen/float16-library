@@ -21,7 +21,7 @@ class float16{
 	private:
 		//Split the 16 bit value into two separate values
 		uint8_t valExp; //One for the exponent (contains the sign bit)	Format of 0bXXSE EEEE
-		uint16_t valMant; //One for the mantisa (this should show the implicit 2^0 bit. Format of 0bIMMM MMMM MMMX XXXX
+		uint16_t valMant; //One for the mantisa (this should show the implicit 2^0 bit. Format of 0bXXXX XIMM MMMM MMMM
 		uint16_t valComp; //This is the compressed 16 bit representation. Format of 0bSEEE EEMM MMMMM MMMM
 	public:
 		float16();	//Construction of the variable
@@ -67,11 +67,10 @@ void float16::Compress()
 	tempExp = valExp;//Creates a temporary clone of the exponent
 	tempMant = valMant;//Creates a temporary clone of the mantissa
 
-	tempMant = tempMant & 0x7FB0;//Removes the MSB (this is the implicit 2^0 bit) and the 6 LSBs (basically rounds down to fit in the 16 bit representation)
+	tempMant = tempMant & 0x03FF;//Removes the 6 MSBs (this includes the implicit 2^0 bit)
 	valComp = tempExp;//Move the exponent into the compressed variable (this contains the sign bit)
 	valComp = valComp << 10;//Shift sign and exponent to be 6 MSBs
 
-	tempMant = tempMant >> 6; //Shift mantissa to be the 10 LSBs.
 	valComp = valComp | tempMant; //Create final float16 value by OR operation
 }
 
@@ -91,7 +90,6 @@ void float16::Decompress()
 	tempComp = valComp;//Recreates the clone of the old 16 bit value
 	tempMant = tempComp & 0x03FF;//Fetch current mantissa
 	tempMant = tempMant | 0x0400;//Add implicit 2^0 bit to use in calculations
-	tempMant = tempMant << 5;//Shift mantissa 5 bits left to make the mantissa calculations easier
 	valMant = tempMant;
 }
 
@@ -134,23 +132,23 @@ void float16::Add_Float16(float16* float16Temp)
 			tempExp1++;//Increment exponent value
 			if (tempExp1 > 31)
 				break;
-			tempMant1 = tempMant1 >> 1;//Bit shift mantissa
+			tempMant1 = tempMant1 >> 1;//Bit shift mantissa, keeps it 10 bits
 		}
 		loopCount += 1;
 	}
 	
-	//Both mantissas should be shifted so that a overflow can be detected
+	/*//Both mantissas should be shifted so that a overflow can be detected
 	tempMant1 = tempMant1 >> 6;
-	tempMant2 = tempMant2 >> 6;
+	tempMant2 = tempMant2 >> 6;*/
 
 	tempMant1 += tempMant2;//add mantissas
-	if (tempMant1 > 1023)//If a mantissa overflow happens
+	if (tempMant1 > 2047)//If a mantissa overflow happens
 	{
 		tempExp1++;//Add 1 to exponent
 		tempMant1 = tempMant1 >> 1;//And shift mantissa right
 	}
 	
-	tempMant1 = tempMant1 << 6; //Normalise the Mantissa so that the 2^0 bit is the MSB
+	//tempMant1 = tempMant1 << 6; //Normalise the Mantissa so that the 2^0 bit is the MSB
 	valExp = tempExp1;
 	valMant = tempMant1;
 	std::cout << "newExp: " << static_cast<int>(tempExp1) << " newMant: " << static_cast<int>(tempMant1) << endl;//Debug
@@ -247,57 +245,57 @@ void convertFloatToFloat16(float fValue, float16* newValue)
 	//Generate mantissa
 	if ((fValue - 0.5) >= 0)//check 2^-1
 	{
-		tempMantissa = tempMantissa | 0x4000; //0b0100 0000 0000 0000
+		tempMantissa = tempMantissa | 0x0200; //0b0000 0010 0000 0000
 		fValue -= 0.5;
 	}
 	if ((fValue - 0.25) >= 0)//check 2^-2
 	{
-		tempMantissa = tempMantissa | 0x2000; //0b0010 0000 0000 0000
+		tempMantissa = tempMantissa | 0x0100; //0b0000 0001 0000 0000
 		fValue -= 0.25;
 	}
 	if ((fValue - 0.125) >= 0)//check 2^-3
 	{
-		tempMantissa = tempMantissa | 0x1000; //0b0001 0000 0000 0000
+		tempMantissa = tempMantissa | 0x0080; //0b0000 0000 1000 0000
 		fValue -= 0.125;
 	}
 	if ((fValue - 0.0625) >= 0)//check 2^-4
 	{
-		tempMantissa = tempMantissa | 0x0800; //0b0000 1000 0000 0000
+		tempMantissa = tempMantissa | 0x0040; //0b0000 0000 0100 0000
 		fValue -= 0.0625;
 	}
 	if ((fValue - 0.03125) >= 0)//check 2^-5
 	{
-		tempMantissa = tempMantissa | 0x0400; //0b0000 0100 0000 0000
+		tempMantissa = tempMantissa | 0x0020; //0b0000 0000 0010 0000
 		fValue -= 0.03125;
 	}
 	if ((fValue - 0.015625) >= 0)//check 2^-6
 	{
-		tempMantissa = tempMantissa | 0x0200; //0b0000 0010 0000 0000
+		tempMantissa = tempMantissa | 0x0010; //0b0000 0000 0001 0000
 		fValue -= 0.015625;
 
 	}
 	if ((fValue - 0.0078125) >= 0)//check 2^-7
 	{
-		tempMantissa = tempMantissa | 0x0100; //0b0000 0001 0000 0000
+		tempMantissa = tempMantissa | 0x0008; //0b0000 0000 0000 1000
 		fValue -= 0.0078125;
 	}
 	if ((fValue - 0.00390625) >= 0)//check 2^-8
 	{
-		tempMantissa = tempMantissa | 0x0080; //0b0000 0000 1000 0000
+		tempMantissa = tempMantissa | 0x0004; //0b0000 0000 0000 0100
 		fValue -= 0.00390625;
 	}
 	if ((fValue - 0.001953125) >= 0)//check 2^-9
 	{
-		tempMantissa = tempMantissa | 0x0040; //0b0000 0000 0100 0000
+		tempMantissa = tempMantissa | 0x0002; //0b0000 0000 000 0010
 		fValue -= 0.001953125;
 	}
 	if ((fValue - 0.0009765625) >= 0)//check 2^-10
 	{
-		tempMantissa = tempMantissa | 0x0020; //0b0000 0000 0010 0000
+		tempMantissa = tempMantissa | 0x0001; //0b0000 0000 0000 0001
 		fValue -= 0.0009765625;
 	}
 	
-	tempMantissa = tempMantissa | 0x8000;// Returns the 2^0 bit
+	tempMantissa = tempMantissa | 0x0400;// Returns the 2^0 bit
 
 	newValue->Set_Exp(15+increment);
 	uint8_t tempExp;
