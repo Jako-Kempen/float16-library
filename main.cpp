@@ -109,12 +109,29 @@ void float16::Add_Float16(float16* float16Temp)
 	uint8_t tempExp1, tempExp2;	//Creates copies of both values' exponents
 	uint16_t tempMant1, tempMant2;//Creates copies of both values' mantissas
 	int loopCount = 1;// A count of how many times the smallest exponents needs to increase before the mantissas can be added
+	bool isZero = 0;//Dettected that one of the values is a zero
 	
 	tempExp1 = valExp;//Clones 'this' exponent
 	tempExp2 = float16Temp->Get_Exp(); //Clones the temporary exponent
 	tempMant1 = valMant;//Clones 'this' mantissa
 	tempMant2 = float16Temp->Get_Mant(); //Clones the temporary mantissa
+	//Compress();
+	//float16Temp->Compress();
 	
+	if ((tempExp1 == 0) && (tempMant1 == 0))
+	{
+		valExp = tempExp2;
+		valMant = tempMant2;
+		std::cout << "Value 1 was 0" << endl;//Debug
+	}
+	else if ((tempExp2 == 0) && (tempMant2 == 0))
+	{
+		valExp = tempExp1;
+		valMant = tempMant1;
+		std::cout << "Value 2 was 0" << endl;//Debug
+	}
+	else
+	{
 	while (tempExp1 != tempExp2)//Loop until both exponents are equal
 	{
 		std::cout << "Loop count: " << loopCount << endl;
@@ -151,7 +168,9 @@ void float16::Add_Float16(float16* float16Temp)
 	//tempMant1 = tempMant1 << 6; //Normalise the Mantissa so that the 2^0 bit is the MSB
 	valExp = tempExp1;
 	valMant = tempMant1;
+	}
 	std::cout << "newExp: " << static_cast<int>(tempExp1) << " newMant: " << static_cast<int>(tempMant1) << endl;//Debug
+	
 }
 
 void float16::Multiply_uint16(uint16_t Multiplicant)
@@ -163,41 +182,33 @@ void float16::Multiply_uint16(uint16_t Multiplicant)
 
 	bool sign = 0;//Initialise the flag as positive
 	uint16_t tempMulti = 0;
-	float16 oldValue;//This keeps a clone of the old 'this' value before the actual 'this' value become the running sum value
-	oldValue.Set_Exp(valExp);
-	oldValue.Set_Mant(valMant);
-	
-	std::cout << "Initial exponent: " << static_cast<int>(valExp) << " Initial mantissa:" <<  static_cast<int>(valMant)<< endl;//Debug
+	float16 temp;//This is the value that will be adjusted as it steps through the multiplicant
 	
 	/*Given that the multiplicant is unsigned, it will be good to mask off the sign bit of 'this' value, and add it back in the very end*/
 	if (valExp > 31)
 		sign = 1;//float16 was a negative value, and the final result will also then be negative
 	valExp = valExp & 0x1F;; //Masking off the sign bit
 	
-	//First to check if the multiplicant is 0
-	if (Multiplicant == 0)
+	temp.Set_Exp(valExp);//It will be set as a clone of 'this' variable
+	temp.Set_Mant(valMant);//This is done before the 'this' value is set to 0, as it becomes the running sum
+	valExp = 0;
+	valMant = 0;
+	
+	//Loop through the multiplicant
+	while (Multiplicant != 0)
 	{
-		std::cout << "Multiplicant detected to be 0" << endl;//Debug
-		//The result should obvisouly be 0
-		valExp = 0;
-		valMant = 0;
-	}
-	else if (Multiplicant != 1)
-	{	
-		while (Multiplicant != 0)
+		tempMulti = Multiplicant & 0x0001;//Mask the LSB
+		if (tempMulti == 0x0001)//If the multiplicant is odd
 		{
-			std::cout << "valExp: " << static_cast<int>(valExp) << " oldExp:" <<  static_cast<int>(oldValue.Get_Exp())<< endl;//Debug
-		
-			tempMulti = Multiplicant & 0x0001; //Mask the LSB
-			
-			if (tempMulti == 0x0001) //If the LSB is 1
-				Add_Float16(&oldValue);//Here the old float16 value must be added to the current (running sum) float 16 value
-			else //Otherwise it has to be 0
-				valExp++;//Add 1 to exponent
-
-			Multiplicant = Multiplicant >> 1;
+			Add_Float16(&temp);//Add the temporary float16 value to the running sum
+			Multiplicant--;//decrement the multiplicant to make it an even number
 		}
-	}
+		else
+		{
+			Multiplicant = Multiplicant >> 1;//Divide the multiplicant in half
+			temp.Set_Exp(temp.Get_Exp()+1);//Increment the temporary exponent (doubles it)
+		}
+	}//Do so until the entire multiplicant has be stepped through
 	
 	if (sign == 1)
 		valExp = valExp | 0x20; //Returns the correct sign bit
@@ -240,7 +251,7 @@ void convertFloatToFloat16(float fValue, float16* newValue)
 	}
 	
 	fValue--; //Remove the implicit 1, this bit will be returned after the mantissa is calculated
-	uint16_t tempMantissa = 0x00;//Initialise the temporary mantissa as 0x00;
+	uint16_t tempMantissa = 0x0000;//Initialise the temporary mantissa as 0x00;
 
 	//Generate mantissa
 	if ((fValue - 0.5) >= 0)//check 2^-1
