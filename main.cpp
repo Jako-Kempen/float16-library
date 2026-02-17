@@ -35,7 +35,7 @@ class float16{
 		uint16_t Get_Comp();
 		void Compress();//Takes the exponent and mantissa and create a 16 bit representation
 		void Decompress();//Takes the 16 bit representation and create exponent and mantissa values
-		void Add_Float16(float16*); //Where 'this' float16 value is added to a temporary float16 value, this overwrites 'this' value
+		void Add_Float16(float16); //Where 'this' float16 value is added to a temporary float16 value, this overwrites 'this' value
 		void Multiply_uint16(uint16_t);//Multiplies 'this' value with an unsigned 16 bit integer value, this overwrites 'this' value
 };
 
@@ -95,7 +95,7 @@ void float16::Decompress()
 	valMant = tempMant;
 }
 
-void float16::Add_Float16(float16* float16Temp)
+void float16::Add_Float16(float16 float16Temp)
 {
 	/*
 	As of 2026-02-11 09h27 UTC+1 this function can't add any negative float16 value
@@ -112,9 +112,9 @@ void float16::Add_Float16(float16* float16Temp)
 	bool isZero = 0;//Dettected that one of the values is a zero
 	
 	tempExp1 = valExp;//Clones 'this' exponent
-	tempExp2 = float16Temp->Get_Exp(); //Clones the temporary exponent
+	tempExp2 = float16Temp.Get_Exp(); //Clones the temporary exponent
 	tempMant1 = valMant;//Clones 'this' mantissa
-	tempMant2 = float16Temp->Get_Mant(); //Clones the temporary mantissa
+	tempMant2 = float16Temp.Get_Mant(); //Clones the temporary mantissa
 	//Compress();
 	//float16Temp->Compress();
 	
@@ -194,7 +194,7 @@ void float16::Multiply_uint16(uint16_t Multiplicant)
 		tempMulti = Multiplicant & 0x0001;//Mask the LSB
 		if (tempMulti == 0x0001)//If the multiplicant is odd
 		{
-			Add_Float16(&temp);//Add the temporary float16 value to the running sum
+			Add_Float16(temp);//Add the temporary float16 value to the running sum
 			Multiplicant--;//decrement the multiplicant to make it an even number
 		}
 		else
@@ -417,6 +417,7 @@ void Multiply(float16* runningSum, uint16_t Multiplier, float16* memory)
 	tempMemory.Set_Exp(0);
 	tempMemory.Set_Mant(0);
 	
+	//This steps through each memory entry in the 20 sized array (this is a row in the memory)
 	for (int iteration = 0; iteration < 20; iteration++)
 	{
 		tempMemory.Set_Exp(memory[iteration].Get_Exp());
@@ -427,99 +428,70 @@ void Multiply(float16* runningSum, uint16_t Multiplier, float16* memory)
 			cout << "Memory is 0." << endl;
 		else
 			tempMemory.Multiply_uint16(Multiplier);
-		//cout << "Multiplied Exp:" << static_cast<int>(tempMemory.Get_Exp()) << " Multiplied Mant: " << static_cast<int>(tempMemory.Get_Mant()) << endl;
-		
-		runningSum->Add_Float16(&tempMemory);
-		//cout << "Running Sum Exp:" << static_cast<int>(tempMemory.Get_Exp()) << " Runnings Sum Mant: " << static_cast<int>(tempMemory.Get_Mant()) << endl;
+		cout << "For index: " << iteration;
+		cout << "Multiplied Exp:" << static_cast<int>(tempMemory.Get_Exp()) << " Multiplied Mant: " << static_cast<int>(tempMemory.Get_Mant()) << endl;
+		runningSum[iteration].Add_Float16(tempMemory);
+		cout << "Running Sum Exp:" << static_cast<int>(runningSum[iteration].Get_Exp()) << " Runnings Sum Mant: " << static_cast<int>(runningSum[iteration].Get_Mant()) << endl;
 	}
 }
 
-int main ()
+void Multiply40SamplesWithMemory()
 {
-	float A = 0;//Input of floatToFloat16 conversion function
-	uint16_t B = 0;//Input of Multiplicant of Multuply_uint16_t
-	float16 Var3;//Declaration of float16 value
-	string line;//Declaration of text read from file
+	float16 memory;
+	float16 sum;
+	uint16_t multiplier;
 	
-	uint8_t sampleNumber = 0;//Starts at the first sample
-	uint16_t sample;//Placeholder for the sample value read from file
-	uint16_t* samplePtr = &sample;//Points to 'sample' address
-	float16 memory[20];//This simulates the values as read from the memory, for now it will be read from a file
-	float16 sum[20];//The running sum total of all mutiplication calculations will be stored here.
+	sum.Set_Exp(0);
+	sum.Set_Mant(0);
 	
+	int tempExp;
+	int tempMant;
 	
-	for (int clearIndex = 0; clearIndex < 20; clearIndex++)
+	for (int count =  0; count < 40; count++)
 	{
-		//Also clears the sum total array
-		sum[clearIndex].Set_Exp(0);
-		sum[clearIndex].Set_Mant(0);
-		sum[clearIndex].Set_Comp(0);
+		cout << "Line: " << count << endl;
+		cout << "Enter multiplier: ";
+		cin >> multiplier;
+	
+		cout << "Enter Exponent: ";
+		cin >> tempExp;
+		
+		cout << "Enter mantissa: ";
+		cin >> tempMant;
+		
+		memory.Set_Exp(static_cast<uint8_t>(tempExp));
+		memory.Set_Mant(static_cast<uint16_t>(tempMant));
+		
+		memory.Multiply_uint16(multiplier);
+		cout << "Multiplication result -> Exp: " << static_cast<int>(memory.Get_Exp()) << " Mant: " << static_cast<int>(memory.Get_Mant()) << endl;
+		
+		sum.Add_Float16(memory);
+		cout << "Running sum result -> Exp: " << static_cast<int>(sum.Get_Exp()) << " Mant: " << static_cast<int>(sum.Get_Mant()) << endl;
+		cout << endl << endl;
+		
 	}
-	
-	ifstream file ("Read.csv");
-	if (file.is_open())
-	{
-		while(getline(file,line))
-		{
-			for (int clearIndex = 0; clearIndex < 20; clearIndex++)
-			{
-				//Initialise memory as all zero, this will be read from  the file
-				memory[clearIndex].Set_Exp(0);
-				memory[clearIndex].Set_Mant(0);
-				memory[clearIndex].Set_Comp(0);
-			}
-			//Displays memory
-			/*
-			cout << "Pre-read Line " << static_cast<int>(sampleNumber) << ":\n";
-			for (int displayMemoryColumn = 0; displayMemoryColumn < 20; displayMemoryColumn++)
-				cout << static_cast<int>(memory[displayMemoryColumn].Get_Exp()) << ',' << static_cast<int>(memory[displayMemoryColumn].Get_Mant()) << ';';
-			cout << endl;
-			*/
-			parseLine(line,memory,samplePtr);//This function also changes the value of sample
-			//Displays the read memory
-			/*
-			cout << "Post-read Line " << static_cast<int>(sampleNumber) << ":\n";
-			for (int displayMemoryColumn = 0; displayMemoryColumn < 20; displayMemoryColumn++)
-				cout << static_cast<int>(memory[displayMemoryColumn].Get_Exp()) << ',' << static_cast<int>(memory[displayMemoryColumn].Get_Mant()) << ';';
-			cout << endl;
-			*/
-			sample = *samplePtr;//Fetch the value at which samplePtr points at
+}
 
-			//Do multiplication
-			Multiply(sum,sample,memory);
-			
-			sampleNumber++;//Displays number of lines read from file, but this can be removed after full test is complete.
-		}
-		
-		file.close();
-		
-		cout << endl << endl << "Final Sum total: " << endl;
-		for (int displayIndex = 0; displayIndex < 20; displayIndex += 2)
-		{
-			cout << "Freq Re:" << displayIndex << "-> Exp: " << static_cast<int>(sum[displayIndex].Get_Exp()) << " Mant: " << static_cast<int>(sum[displayIndex].Get_Mant()) << endl;
-			cout << "Freq Im:" << displayIndex << "-> Exp: " << static_cast<int>(sum[displayIndex+1].Get_Exp()) << " Mant: " << static_cast<int>(sum[displayIndex+1].Get_Mant()) << endl;
-		}
-	}
-	else
-		cout << "File not found" << endl;
+int main()
+{
+	//Multiply40SamplesWithMemory();
+	float A;
+	float16* B;
 	
-	/*while (1)
+	uint8_t tExp;
+	uint16_t tMant;
+	
+	while (1)
 	{
-		Var3.Set_Exp(0);
-		Var3.Set_Mant(0);
-		Var3.Set_Comp(0);
-		
-		/*std::cout << "Enter uint16_t multiplicant:" << endl;
-		std::cin >> B;
-		std::cout << "Enter the float value:\t";
 		std::cin >> A;
-		if (A != 0)
-			convertFloatToFloat16(A,&Var3);
-		std::cout << "Exponent: " << static_cast<int>(Var3.Get_Exp()) << " Mantissa: " << static_cast<int>(Var3.Get_Mant()) << endl << endl;//Debug
-		std::cout << "Multiplying..." << endl;
-		Var3.Multiply_uint16(B);
-		
-		std::cout << "New Exponent: " << static_cast<int>(Var3.Get_Exp()) << " New Mantissa: " << static_cast<int>(Var3.Get_Mant()) << endl;//Debug*/
-	//}//While
+	
+		B->Set_Exp(0);
+		B->Set_Mant(0);
+	
+		convertFloatToFloat16(A,B);
+	
+		std::cout << "Exp: " << static_cast<int>(B->Get_Exp()) << " Mant: " << static_cast<int>(B->Get_Mant()) << endl;
+	}
+	
 	return(0);
 };
