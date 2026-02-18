@@ -477,21 +477,61 @@ int main()
 	//Multiply40SamplesWithMemory();
 	float A;
 	float16* B;
+	string line;
+	uint8_t commaPosition = 0;
+	char value[15];
+	std::size_t valueLength;
 	
 	uint8_t tExp;
 	uint16_t tMant;
 	
-	while (1)
+	std::cin >> A;
+	std::cout << sizeof(A) << endl;
+	
+	//Open Read file
+	ifstream readFile ("Read.csv");
+	
+	//Open write file
+	ofstream writeFile;
+	writeFile.open("Write.csv");
+	
+	/*while (1)
+	{*/
+	if (readFile.is_open())
 	{
-		std::cin >> A;
-	
-		B->Set_Exp(0);
-		B->Set_Mant(0);
-	
-		convertFloatToFloat16(A,B);
-	
-		std::cout << "Exp: " << static_cast<int>(B->Get_Exp()) << " Mant: " << static_cast<int>(B->Get_Mant()) << endl;
-	}
+		while (getline(readFile,line))
+		{
+				//for loop parse data
+				for (int step = 0; step < 20; step++)
+				{
+					if (line.find(',') != line.npos)
+						commaPosition = line.find(',');
+					else
+						
+					valueLength = line.copy(value,commaPosition);
+					value[valueLength] = '\0';
+					int temp(stof(value));
+					
+					B->Set_Exp(0);
+					B->Set_Mant(0);
+				
+					convertFloatToFloat16(A,temp);
+				
+					writeFile << B.Get_Exp() << ',' << B.Get_Mant();
+				
+					if (step < 19)
+						writeFile << ',';
+					else
+						wtireFile << endl;
+				
+				}//end loop
+				
+				
+		}
+		//close write file
+		//close rad file
+		
+	//}while(1)
 	
 	return(0);
 };
