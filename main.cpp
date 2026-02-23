@@ -510,7 +510,7 @@ int main()
 	char value[15];
 	std::size_t valueLength;
 	
-	uint8_t tExp;
+	uint16_t tExp;
 	uint16_t tMant;
 	
 	std::cin >> A;
@@ -543,7 +543,7 @@ int main()
 					B->Set_Exp(0);
 					B->Set_Mant(0);
 				
-					convertFloatToFloat16(A,temp);
+					convertFloatToFloat16(A,B);
 				
 					writeFile << B.Get_Exp() << ',' << B.Get_Mant();
 				
@@ -562,4 +562,5 @@ int main()
 	//}while(1)
 	
 	return(0);
+
 };
