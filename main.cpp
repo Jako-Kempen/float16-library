@@ -405,7 +405,7 @@ void convertFloatToFloat16(float fValue, float16* newValue)
 		tempMantissa = tempMantissa | 0x0080; //0b0000 0000 0000 1000
 		fValue -= 0.00048828125;
 	}
-	if ((fValue - 0,000244140625) >= 0)//check 2^-12
+	if ((fValue - 0.000244140625) >= 0)//check 2^-12
 	{
 		tempMantissa = tempMantissa | 0x0040; //0b0000 0000 0000 0100
 		fValue -= 0.000244140625;
