@@ -410,7 +410,7 @@ void convertFloatToFloat16(float fValue, float16* newValue)
 		tempMantissa = tempMantissa | 0x0040; //0b0000 0000 0000 0100
 		fValue -= 0.000244140625;
 	}
-	if ((fValue - 0.0001220703125 >= 0)//check 2^-13
+	if ((fValue - 0.0001220703125) >= 0)//check 2^-13
 	{
 		tempMantissa = tempMantissa | 0x0020; //0b0000 0000 0000 0010
 		fValue -= 0.0001220703125;
@@ -545,22 +545,23 @@ int main()
 				
 					convertFloatToFloat16(A,B);
 				
-					writeFile << B.Get_Exp() << ',' << B.Get_Mant();
+					writeFile << B->Get_Exp() << ',' << B->Get_Mant();
 				
 					if (step < 19)
 						writeFile << ',';
 					else
 						wtireFile << endl;
 				
-				}//end loop
+				}//loop parse
 				
 				
-		}
+		}//while !eof
 		//close write file
 		//close rad file
-		
+
+	//if
 	//}while(1)
-	
 	return(0);
 
 };
+
