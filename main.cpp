@@ -479,15 +479,14 @@ int main()
 	float16* B;
 	string line;
 	uint8_t commaPosition = 0;
-	char value[15];
+	char value[20];
 	std::size_t valueLength;
+
+	uint8_t step = 0;
 	
 	uint8_t tExp;
 	uint16_t tMant;
-	
-	std::cin >> A;
-	std::cout << sizeof(A) << endl;
-	
+
 	//Open Read file
 	ifstream readFile ("Read.csv");
 	
@@ -502,36 +501,34 @@ int main()
 		while (getline(readFile,line))
 		{
 				//for loop parse data
-				for (int step = 0; step < 20; step++)
+				for (step = 0; step < 36; step++)//Reads 36 items per line
 				{
-					if (line.find(',') != line.npos)
+					if (line.find(',') != line.npos)//Find the 36 float values
 						commaPosition = line.find(',');
-					else
 						
 					valueLength = line.copy(value,commaPosition);
 					value[valueLength] = '\0';
-					int temp(stof(value));
+					 
+					float temp(stof(value));
 					
 					B->Set_Exp(0);
 					B->Set_Mant(0);
 				
-					convertFloatToFloat16(A,temp);
+					convertFloatToFloat16(temp,B);
 				
-					writeFile << B.Get_Exp() << ',' << B.Get_Mant();
+					writeFile << B->Get_Exp() << ',' << B->Get_Mant();
 				
-					if (step < 19)
+					if (step < 35)
 						writeFile << ',';
 					else
-						wtireFile << endl;
+						writeFile << endl;
 				
 				}//end loop
-				
-				
 		}
 		//close write file
 		//close rad file
 		
-	//}while(1)
+	}//while(1)
 	
 	return(0);
 };
