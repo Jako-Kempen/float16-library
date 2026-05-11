@@ -476,7 +476,7 @@ int main()
 {
 	//Multiply40SamplesWithMemory();
 	float A;
-	float16* B;
+	float16 B;
 	string line;
 	uint8_t commaPosition = 0;
 	char value[20];
@@ -489,13 +489,14 @@ int main()
 
 	//Open Read file
 	ifstream readFile ("Read.csv");
-	
-	//Open write file
+	//Openm Write file
 	ofstream writeFile;
 	writeFile.open("Write.csv");
-	
+
 	/*while (1)
 	{*/
+	int row = 1;
+
 	if (readFile.is_open())
 	{
 		while (getline(readFile,line))
@@ -511,21 +512,22 @@ int main()
 					 
 					float temp(stof(value));
 					
-					B->Set_Exp(0);
-					B->Set_Mant(0);
+					B.Set_Exp(0);
+					B.Set_Mant(0);
 				
-					convertFloatToFloat16(temp,B);
+					convertFloatToFloat16(temp,&B);
 				
-					writeFile << B->Get_Exp() << ',' << B->Get_Mant();
-				
+					writeFile << static_cast<int>(B.Get_Exp()) << ',' << B.Get_Mant();
 					if (step < 35)
 						writeFile << ',';
 					else
 						writeFile << endl;
 				
 				}//end loop
+				row++;
 		}
 		//close write file
+		writeFile.close();
 		//close rad file
 		
 	}//while(1)
