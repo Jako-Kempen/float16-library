@@ -19,11 +19,15 @@ Using the Compress fucntion, both sign bit, exponent and mantissa can be repress
 This compressed 16 bit value should only be converted to when it is stored or communicated elsewhere.
 */
 
+uint8_t Exponent_Adjust = 63;//Was 15
+uint8_t Exponent_Maximum = 127;//Was 31
+uint16_t Mantissa_Overflow = 32767;//Was 2047
+
 class float16{
 	private:
 		//Split the 16 bit value into two separate values
-		uint8_t valExp; //One for the exponent (contains the sign bit)	Format of 0bXXSE EEEE
-		uint16_t valMant; //One for the mantisa (this should show the implicit 2^0 bit. Format of 0bXXXX XIMM MMMM MMMM
+		uint8_t valExp; //One for the exponent (contains the sign bit)	Format of 0bSEEE EEEE//Changed 5 bits to 7 bits
+		uint16_t valMant; //One for the mantisa (this should show the implicit 2^0 bit. Format of 0bXXXX XIMM MMMM MMMM//changed 12 bits to 14 bits
 		uint16_t valComp; //This is the compressed 16 bit representation. Format of 0bSEEE EEMM MMMMM MMMM
 	public:
 		float16();	//Construction of the variable
@@ -58,7 +62,7 @@ uint16_t float16::Get_Mant()	{return(valMant);}
 
 uint16_t float16::Get_Comp() {return(valComp);}
 
-void float16::Compress()
+void float16::Compress()//Fix this for newest format
 {
 	/*This function takes the two variables; uint8_t and uint16_t, and writes it in the float16 format.*/
 	
@@ -76,7 +80,7 @@ void float16::Compress()
 	valComp = valComp | tempMant; //Create final float16 value by OR operation
 }
 
-void float16::Decompress()
+void float16::Decompress()//Fix this for newest format
 {
 	/*This functions takes the variable in the float16 format, and writes it to the uint8_t and uint16_t variables.*/
 	
@@ -139,7 +143,7 @@ void float16::Add_Float16(float16 float16Temp)
 		{
 			//This routine doubles the smallest value (in this case the temporary float16 value)
 			tempExp2++;//Increment exponent value
-			if (tempExp2 > 31)
+			if (tempExp2 > Exponent_Maximum)
 				break;
 			tempMant2 = tempMant2 >> 1; //Bit shift mantissa
 		}
@@ -147,7 +151,7 @@ void float16::Add_Float16(float16 float16Temp)
 		{
 			//This routine doubles the smallest value (in this case 'this' float16 value)
 			tempExp1++;//Increment exponent value
-			if (tempExp1 > 31)
+			if (tempExp1 > Exponent_Maximum)
 				break;
 			tempMant1 = tempMant1 >> 1;//Bit shift mantissa, keeps it 10 bits
 		}
@@ -155,7 +159,7 @@ void float16::Add_Float16(float16 float16Temp)
 	}
 
 	tempMant1 += tempMant2;//add mantissas
-	if (tempMant1 > 2047)//If a mantissa overflow happens
+	if (tempMant1 > Mantissa_Overflow)//If a mantissa overflow happens
 	{
 		tempExp1++;//Add 1 to exponent
 		tempMant1 = tempMant1 >> 1;//And shift mantissa right
@@ -179,9 +183,9 @@ void float16::Multiply_uint16(uint16_t Multiplicant)
 	float16 temp;//This is the value that will be adjusted as it steps through the multiplicant
 	
 	/*Given that the multiplicant is unsigned, it will be good to mask off the sign bit of 'this' value, and add it back in the very end*/
-	if (valExp > 31)
+	if (valExp > Exponent_Maximum)
 		sign = 1;//float16 was a negative value, and the final result will also then be negative
-	valExp = valExp & 0x1F;; //Masking off the sign bit
+	valExp = valExp & 0x7F;; //Masking off the sign bit
 	
 	temp.Set_Exp(valExp);//It will be set as a clone of 'this' variable
 	temp.Set_Mant(valMant);//This is done before the 'this' value is set to 0, as it becomes the running sum
@@ -205,7 +209,7 @@ void float16::Multiply_uint16(uint16_t Multiplicant)
 	}//Do so until the entire multiplicant has be stepped through
 	
 	if (sign == 1)
-		valExp = valExp | 0x20; //Returns the correct sign bit
+		valExp = valExp | 0x80; //Returns the correct sign bit
 }
 
 void openFile()
@@ -350,64 +354,84 @@ void convertFloatToFloat16(float fValue, float16* newValue)
 	//Generate mantissa
 	if ((fValue - 0.5) >= 0)//check 2^-1
 	{
-		tempMantissa = tempMantissa | 0x0200; //0b0000 0010 0000 0000
+		tempMantissa = tempMantissa | 0x2000; //0b0010 0000 0000 0000
 		fValue -= 0.5;
 	}
 	if ((fValue - 0.25) >= 0)//check 2^-2
 	{
-		tempMantissa = tempMantissa | 0x0100; //0b0000 0001 0000 0000
+		tempMantissa = tempMantissa | 0x1000; //0b0001 0000 0000 0000
 		fValue -= 0.25;
 	}
 	if ((fValue - 0.125) >= 0)//check 2^-3
 	{
-		tempMantissa = tempMantissa | 0x0080; //0b0000 0000 1000 0000
+		tempMantissa = tempMantissa | 0x0800; //0b0000 1000 0000 0000
 		fValue -= 0.125;
 	}
 	if ((fValue - 0.0625) >= 0)//check 2^-4
 	{
-		tempMantissa = tempMantissa | 0x0040; //0b0000 0000 0100 0000
+		tempMantissa = tempMantissa | 0x0400; //0b0000 0100 0000 0000
 		fValue -= 0.0625;
 	}
 	if ((fValue - 0.03125) >= 0)//check 2^-5
 	{
-		tempMantissa = tempMantissa | 0x0020; //0b0000 0000 0010 0000
+		tempMantissa = tempMantissa | 0x0200; //0b0000 0010 0000 0000
 		fValue -= 0.03125;
 	}
 	if ((fValue - 0.015625) >= 0)//check 2^-6
 	{
-		tempMantissa = tempMantissa | 0x0010; //0b0000 0000 0001 0000
+		tempMantissa = tempMantissa | 0x0100; //0b0000 0001 0000 0000
 		fValue -= 0.015625;
 
 	}
 	if ((fValue - 0.0078125) >= 0)//check 2^-7
 	{
-		tempMantissa = tempMantissa | 0x0008; //0b0000 0000 0000 1000
+		tempMantissa = tempMantissa | 0x0080; //0b0000 0000 1000 0000
 		fValue -= 0.0078125;
 	}
 	if ((fValue - 0.00390625) >= 0)//check 2^-8
 	{
-		tempMantissa = tempMantissa | 0x0004; //0b0000 0000 0000 0100
+		tempMantissa = tempMantissa | 0x0040; //0b0000 0000 0100 0000
 		fValue -= 0.00390625;
 	}
 	if ((fValue - 0.001953125) >= 0)//check 2^-9
 	{
-		tempMantissa = tempMantissa | 0x0002; //0b0000 0000 000 0010
+		tempMantissa = tempMantissa | 0x0020; //0b0000 0000 0010 0000
 		fValue -= 0.001953125;
 	}
 	if ((fValue - 0.0009765625) >= 0)//check 2^-10
 	{
-		tempMantissa = tempMantissa | 0x0001; //0b0000 0000 0000 0001
+		tempMantissa = tempMantissa | 0x0010; //0b0000 0000 0001 0000
 		fValue -= 0.0009765625;
 	}
+	if ((fValue - 0.00048828125) >= 0)//check 2^-11
+	{
+		tempMantissa = tempMantissa | 0x0080; //0b0000 0000 0000 1000
+		fValue -= 0.00048828125;
+	}
+	if ((fValue - 0.000244140625) >= 0)//check 2^-12
+	{
+		tempMantissa = tempMantissa | 0x040; //0b0000 0000 0000 0100
+		fValue -= 0.000244140625;
+	}
+	if ((fValue - 0.0001220703125) >= 0)//check 2^-13
+	{
+		tempMantissa = tempMantissa | 0x020; //0b0000 0000 000 0010
+		fValue -= 0.0001220703125;
+	}
+	if ((fValue - 0.00006103515625) >= 0)//check 2^-14
+	{
+		tempMantissa = tempMantissa | 0x010; //0b0000 0000 0000 0001
+		fValue -= 0.00006103515625;
+	}
 	
-	tempMantissa = tempMantissa | 0x0400;// Returns the 2^0 bit
+	tempMantissa = tempMantissa | 0x4000;// Returns the 2^0 bit
 
-	newValue->Set_Exp(15+increment);
+	newValue->Set_Exp(Exponent_Adjust+increment);
 	uint8_t tempExp;
 	tempExp = newValue->Get_Exp();
 	
 	if (sign == 1)
-		tempExp = tempExp | 0x20; //Flag the sign bit if the value is negative
+		tempExp = tempExp | 0x80; //Flag the sign bit if the value is negative
 
 	newValue->Set_Exp(tempExp);
 	newValue->Set_Mant(tempMantissa);
@@ -486,7 +510,7 @@ int main()
 	float16 B;
 	string line;
 	uint8_t commaPosition = 0;
-	char value[20];
+	char value[30];
 	std::size_t valueLength;
 
 	uint8_t step = 0;
