@@ -506,10 +506,14 @@ int main()
 				{
 					if (line.find(',') != line.npos)//Find the 36 float values
 						commaPosition = line.find(',');
-						
+					else
+						commaPosition = line.length();
 					valueLength = line.copy(value,commaPosition);
 					value[valueLength] = '\0';
-					 
+					
+					if (line.length() > valueLength)
+						line = line.substr(valueLength+1);
+						
 					float temp(stof(value));
 					
 					B.Set_Exp(0);
