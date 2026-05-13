@@ -337,6 +337,13 @@ void convertFloatToFloat16(float fValue, float16* newValue)
 		}	
 	}
 	
+	if (fValue == 0)
+	{
+		newValue->Set_Exp(0);
+		newValue->Set_Mant(0);
+		return;
+	}
+
 	fValue--; //Remove the implicit 1, this bit will be returned after the mantissa is calculated
 	uint16_t tempMantissa = 0x0000;//Initialise the temporary mantissa as 0x00;
 
